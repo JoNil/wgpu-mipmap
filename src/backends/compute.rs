@@ -1,12 +1,12 @@
 use crate::{core::*, util::get_mip_extent};
 use std::{collections::HashMap, num::NonZeroU32};
 use wgpu::{
-    util::make_spirv, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, CommandEncoder,
-    ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor, Device,
-    PipelineLayoutDescriptor, ShaderFlags, ShaderModule, ShaderModuleDescriptor, ShaderStage,
-    StorageTextureAccess, Texture, TextureAspect, TextureDescriptor, TextureDimension,
-    TextureFormat, TextureUsage, TextureViewDescriptor, TextureViewDimension,
+    BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingResource, BindingType, CommandEncoder, ComputePassDescriptor,
+    ComputePipeline, ComputePipelineDescriptor, Device, PipelineLayoutDescriptor, ShaderModule,
+    ShaderModuleDescriptor, ShaderStages, StorageTextureAccess, Texture, TextureAspect,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor,
+    TextureViewDimension,
 };
 
 /// Generates mipmaps for textures with storage usage.
@@ -18,8 +18,8 @@ pub struct ComputeMipmapGenerator {
 
 impl ComputeMipmapGenerator {
     /// Returns the texture usage `ComputeMipmapGenerator` requires for mipmap generation.
-    pub fn required_usage() -> TextureUsage {
-        TextureUsage::STORAGE
+    pub fn required_usage() -> TextureUsages {
+        TextureUsages::STORAGE_BINDING
     }
 
     /// Creates a new `ComputeMipmapGenerator`. Once created, it can be used repeatedly to
@@ -90,7 +90,7 @@ impl MipmapGenerator for ComputeMipmapGenerator {
                     dimension: None,
                     aspect: TextureAspect::All,
                     base_mip_level,
-                    level_count: NonZeroU32::new(1),
+                    mip_level_count: NonZeroU32::new(1),
                     array_layer_count: None,
                     base_array_layer: 0,
                 })
@@ -183,7 +183,7 @@ fn bind_group_layout_for_format(device: &Device, format: TextureFormat) -> BindG
         entries: &[
             BindGroupLayoutEntry {
                 binding: 0,
-                visibility: ShaderStage::COMPUTE,
+                visibility: ShaderStages::COMPUTE,
                 ty: BindingType::StorageTexture {
                     access: StorageTextureAccess::ReadOnly,
                     format,
@@ -193,7 +193,7 @@ fn bind_group_layout_for_format(device: &Device, format: TextureFormat) -> BindG
             },
             BindGroupLayoutEntry {
                 binding: 1,
-                visibility: ShaderStage::COMPUTE,
+                visibility: ShaderStages::COMPUTE,
                 ty: BindingType::StorageTexture {
                     access: StorageTextureAccess::ReadOnly,
                     format,
@@ -269,7 +269,7 @@ mod tests {
         let texture_extent = wgpu::Extent3d {
             width: size,
             height: size,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture_descriptor = wgpu::TextureDescriptor {
             size: texture_extent,
@@ -297,7 +297,7 @@ mod tests {
         let texture_extent = wgpu::Extent3d {
             width: size,
             height: size,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture_descriptor = wgpu::TextureDescriptor {
             size: texture_extent,
@@ -326,7 +326,7 @@ mod tests {
         let texture_extent = wgpu::Extent3d {
             width: size,
             height: size,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture_descriptor = wgpu::TextureDescriptor {
             size: texture_extent,
@@ -334,13 +334,13 @@ mod tests {
             format,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            usage: wgpu::TextureUsage::empty(),
+            usage: wgpu::TextureUsages::empty(),
             label: None,
         };
         futures::executor::block_on(async {
             let res = generate_test(&texture_descriptor).await;
             assert!(res.is_err());
-            assert!(res.err() == Some(Error::UnsupportedUsage(wgpu::TextureUsage::empty())));
+            assert!(res.err() == Some(Error::UnsupportedUsage(wgpu::TextureUsages::empty())));
         });
     }
 
@@ -355,7 +355,7 @@ mod tests {
         let texture_extent = wgpu::Extent3d {
             width: size,
             height: size,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture_descriptor = wgpu::TextureDescriptor {
             size: texture_extent,

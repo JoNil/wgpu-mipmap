@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 /// utilities used throughout the project. Not part of the official API.
 use crate::core::*;
 
@@ -51,21 +53,22 @@ pub async fn generate_and_copy_to_cpu(
     let texture = device.create_texture(&texture_descriptor);
     // Upload `data` to the texture
     queue.write_texture(
-        wgpu::TextureCopyView {
+        wgpu::ImageCopyTexture {
             texture: &texture,
             mip_level: 0,
             origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
         },
         &data,
-        wgpu::TextureDataLayout {
+        wgpu::ImageDataLayout {
             offset: 0,
-            bytes_per_row: buffer_dimensions.unpadded_bytes_per_row as u32,
-            rows_per_image: 0,
+            bytes_per_row: NonZeroU32::new(buffer_dimensions.unpadded_bytes_per_row as u32),
+            rows_per_image: None,
         },
         wgpu::Extent3d {
             width: buffer_dimensions.width as u32,
             height: buffer_dimensions.height as u32,
-            depth: 1,
+            depth_or_array_layers: 1,
         },
     );
     let mut encoder =
@@ -86,26 +89,27 @@ pub async fn generate_and_copy_to_cpu(
             let mip_texture_extent = wgpu::Extent3d {
                 width: mip_width as u32,
                 height: mip_height as u32,
-                depth: 1,
+                depth_or_array_layers: 1,
             };
             let buffer = device.create_buffer(&wgpu::BufferDescriptor {
                 label: None,
                 size,
-                usage: wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::MAP_READ,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
                 mapped_at_creation: false,
             });
             encoder.copy_texture_to_buffer(
-                wgpu::TextureCopyView {
+                wgpu::ImageCopyTexture {
                     texture: &texture,
                     mip_level: i,
                     origin: wgpu::Origin3d::ZERO,
+                    aspect: wgpu::TextureAspect::All,
                 },
-                wgpu::BufferCopyView {
+                wgpu::ImageCopyBuffer {
                     buffer: &buffer,
-                    layout: wgpu::TextureDataLayout {
+                    layout: wgpu::ImageDataLayout {
                         offset: 0,
-                        bytes_per_row: mip_dimensions.padded_bytes_per_row as u32,
-                        rows_per_image: 0,
+                        bytes_per_row: NonZeroU32::new(mip_dimensions.padded_bytes_per_row as u32),
+                        rows_per_image: None,
                     },
                 },
                 mip_texture_extent,
@@ -247,10 +251,11 @@ fn format_bytes_per_channel(format: &wgpu::TextureFormat) -> usize {
 #[doc(hidden)]
 #[allow(dead_code)]
 pub(crate) async fn wgpu_setup() -> (wgpu::Instance, wgpu::Adapter, wgpu::Device, wgpu::Queue) {
-    let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+    let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
     let adapter = instance
         .request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::HighPerformance,
+            force_fallback_adapter: false,
             compatible_surface: None,
         })
         .await
@@ -278,10 +283,11 @@ pub(crate) async fn wgpu_setup() -> (wgpu::Instance, wgpu::Adapter, wgpu::Device
 pub(crate) fn get_mip_extent(extent: &wgpu::Extent3d, level: u32) -> wgpu::Extent3d {
     let mip_width = ((extent.width as f32) / (2u32.pow(level) as f32)).floor() as u32;
     let mip_height = ((extent.height as f32) / (2u32.pow(level) as f32)).floor() as u32;
-    let mip_depth = ((extent.depth as f32) / (2u32.pow(level) as f32)).floor() as u32;
+    let mip_depth =
+        ((extent.depth_or_array_layers as f32) / (2u32.pow(level) as f32)).floor() as u32;
     wgpu::Extent3d {
         width: mip_width.max(1),
         height: mip_height.max(1),
-        depth: mip_depth.max(1),
+        depth_or_array_layers: mip_depth.max(1),
     }
 }

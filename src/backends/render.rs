@@ -1,13 +1,13 @@
 use crate::{core::*, util::get_mip_extent};
 use std::{collections::HashMap, num::NonZeroU32};
 use wgpu::{
-    util::make_spirv, AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, CommandEncoder,
-    CullMode, Device, FilterMode, FragmentState, FrontFace, LoadOp, MultisampleState, Operations,
-    PipelineLayoutDescriptor, PrimitiveState, RenderPassColorAttachmentDescriptor,
-    RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, Sampler, SamplerDescriptor,
-    ShaderFlags, ShaderModuleDescriptor, ShaderStage, Texture, TextureAspect, TextureDescriptor,
-    TextureDimension, TextureFormat, TextureSampleType, TextureUsage, TextureViewDescriptor,
+    AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingResource, BindingType, CommandEncoder, Device, Face, FilterMode,
+    FragmentState, FrontFace, LoadOp, MultisampleState, Operations, PipelineLayoutDescriptor,
+    PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor, RenderPipeline,
+    RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor,
+    ShaderModuleDescriptor, ShaderStages, Texture, TextureAspect, TextureDescriptor,
+    TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor,
     TextureViewDimension, VertexState,
 };
 
@@ -44,6 +44,13 @@ fn to_sample_type(format: TextureFormat) -> TextureSampleType {
         TextureFormat::R8Unorm
         | TextureFormat::R8Snorm
         | TextureFormat::R16Float
+        | TextureFormat::R16Unorm
+        | TextureFormat::R16Snorm
+        | TextureFormat::Rg16Unorm
+        | TextureFormat::Rg16Snorm
+        | TextureFormat::Rgba16Unorm
+        | TextureFormat::Rgba16Snorm
+        | TextureFormat::Rgb9e5Ufloat
         | TextureFormat::Rg8Unorm
         | TextureFormat::Rg8Snorm
         | TextureFormat::R32Float
@@ -75,16 +82,16 @@ fn to_sample_type(format: TextureFormat) -> TextureSampleType {
         | TextureFormat::Bc6hRgbSfloat
         | TextureFormat::Bc7RgbaUnorm
         | TextureFormat::Bc7RgbaUnormSrgb
-        | TextureFormat::Etc2RgbUnorm
-        | TextureFormat::Etc2RgbUnormSrgb
-        | TextureFormat::Etc2RgbA1Unorm
-        | TextureFormat::Etc2RgbA1UnormSrgb
-        | TextureFormat::Etc2RgbA8Unorm
-        | TextureFormat::Etc2RgbA8UnormSrgb
-        | TextureFormat::EacRUnorm
-        | TextureFormat::EacRSnorm
-        | TextureFormat::EtcRgUnorm
-        | TextureFormat::EtcRgSnorm
+        | TextureFormat::Etc2Rgb8Unorm
+        | TextureFormat::Etc2Rgb8UnormSrgb
+        | TextureFormat::Etc2Rgb8A1Unorm
+        | TextureFormat::Etc2Rgb8A1UnormSrgb
+        | TextureFormat::Etc2Rgba8Unorm
+        | TextureFormat::Etc2Rgba8UnormSrgb
+        | TextureFormat::EacR11Unorm
+        | TextureFormat::EacR11Snorm
+        | TextureFormat::EacRg11Unorm
+        | TextureFormat::EacRg11Snorm
         | TextureFormat::Astc4x4RgbaUnorm
         | TextureFormat::Astc4x4RgbaUnormSrgb
         | TextureFormat::Astc5x4RgbaUnorm
@@ -118,8 +125,8 @@ fn to_sample_type(format: TextureFormat) -> TextureSampleType {
 
 impl RenderMipmapGenerator {
     /// Returns the texture usage `RenderMipmapGenerator` requires for mipmap generation.
-    pub fn required_usage() -> TextureUsage {
-        TextureUsage::RENDER_ATTACHMENT | TextureUsage::SAMPLED
+    pub fn required_usage() -> TextureUsages {
+        TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING
     }
 
     /// Creates a new `RenderMipmapGenerator`. Once created, it can be used repeatedly to
@@ -151,7 +158,7 @@ impl RenderMipmapGenerator {
                         entries: &[
                             BindGroupLayoutEntry {
                                 binding: 0,
-                                visibility: ShaderStage::FRAGMENT,
+                                visibility: ShaderStages::FRAGMENT,
                                 ty: BindingType::Texture {
                                     view_dimension: TextureViewDimension::D2,
                                     sample_type,
@@ -161,11 +168,8 @@ impl RenderMipmapGenerator {
                             },
                             BindGroupLayoutEntry {
                                 binding: 1,
-                                visibility: ShaderStage::FRAGMENT,
-                                ty: BindingType::Sampler {
-                                    filtering: true,
-                                    comparison: false,
-                                },
+                                visibility: ShaderStages::FRAGMENT,
+                                ty: BindingType::Sampler(SamplerBindingType::Filtering),
                                 count: None,
                             },
                         ],
@@ -208,7 +212,7 @@ impl RenderMipmapGenerator {
                         primitive: PrimitiveState {
                             topology: wgpu::PrimitiveTopology::TriangleList,
                             front_face: FrontFace::Ccw,
-                            cull_mode: CullMode::Back,
+                            cull_mode: Some(Face::Back),
                             ..Default::default()
                         },
                         depth_stencil: None,
@@ -222,6 +226,7 @@ impl RenderMipmapGenerator {
                             entry_point: "main",
                             targets: &[(*format).into()],
                         }),
+                        multiview: None,
                     });
                     pipeline_cache.insert(*format, pipeline);
                 } else {
@@ -291,7 +296,7 @@ impl RenderMipmapGenerator {
             return Err(Error::UnsupportedDimension(src_dim));
         }
         // src texture must be sampled
-        if !src_usage.contains(TextureUsage::SAMPLED) {
+        if !src_usage.contains(TextureUsages::TEXTURE_BINDING) {
             return Err(Error::UnsupportedUsage(src_usage));
         }
         // dst texture must be sampled and output attachment
@@ -323,7 +328,7 @@ impl RenderMipmapGenerator {
                     dimension: None,
                     aspect: TextureAspect::All,
                     base_mip_level,
-                    level_count: NonZeroU32::new(1),
+                    mip_level_count: NonZeroU32::new(1),
                     array_layer_count: None,
                     base_array_layer: 0,
                 })
@@ -348,8 +353,8 @@ impl RenderMipmapGenerator {
             });
             let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: None,
-                color_attachments: &[RenderPassColorAttachmentDescriptor {
-                    attachment: &dst_view,
+                color_attachments: &[RenderPassColorAttachment {
+                    view: &dst_view,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Load,
@@ -431,7 +436,7 @@ mod tests {
         let texture_extent = wgpu::Extent3d {
             width: size,
             height: size,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture_descriptor = wgpu::TextureDescriptor {
             size: texture_extent,
@@ -459,7 +464,7 @@ mod tests {
         let texture_extent = wgpu::Extent3d {
             width: size,
             height: size,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture_descriptor = wgpu::TextureDescriptor {
             size: texture_extent,
@@ -467,13 +472,13 @@ mod tests {
             format,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            usage: wgpu::TextureUsage::empty(),
+            usage: wgpu::TextureUsages::empty(),
             label: None,
         };
         futures::executor::block_on(async {
             let res = generate_test(&texture_descriptor).await;
             assert!(res.is_err());
-            assert!(res.err() == Some(Error::UnsupportedUsage(wgpu::TextureUsage::empty())));
+            assert!(res.err() == Some(Error::UnsupportedUsage(wgpu::TextureUsages::empty())));
         });
     }
 
@@ -488,7 +493,7 @@ mod tests {
         let texture_extent = wgpu::Extent3d {
             width: size,
             height: size,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture_descriptor = wgpu::TextureDescriptor {
             size: texture_extent,
@@ -496,7 +501,7 @@ mod tests {
             format,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
             label: None,
         };
         futures::executor::block_on(async {

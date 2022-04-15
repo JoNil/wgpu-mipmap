@@ -139,7 +139,7 @@ mod tests {
         let texture_extent = wgpu::Extent3d {
             width: size,
             height: size,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture_descriptor = wgpu::TextureDescriptor {
             size: texture_extent,
@@ -148,8 +148,8 @@ mod tests {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             usage: crate::RenderMipmapGenerator::required_usage()
-                | wgpu::TextureUsage::COPY_DST
-                | wgpu::TextureUsage::COPY_SRC,
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::COPY_SRC,
             label: None,
         };
         dbg!(format);
@@ -199,7 +199,7 @@ mod tests {
         let texture_extent = wgpu::Extent3d {
             width: size,
             height: size,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture_descriptor = wgpu::TextureDescriptor {
             size: texture_extent,
@@ -208,8 +208,8 @@ mod tests {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             usage: crate::RenderMipmapGenerator::required_usage()
-                | wgpu::TextureUsage::COPY_DST
-                | wgpu::TextureUsage::COPY_SRC,
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::COPY_SRC,
             label: None,
         };
         futures::executor::block_on(async {
@@ -254,7 +254,7 @@ mod tests {
         let texture_extent = wgpu::Extent3d {
             width: size,
             height: size,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture_descriptor = wgpu::TextureDescriptor {
             size: texture_extent,
@@ -263,8 +263,8 @@ mod tests {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             usage: crate::RenderMipmapGenerator::required_usage()
-                | wgpu::TextureUsage::COPY_DST
-                | wgpu::TextureUsage::COPY_SRC,
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::COPY_SRC,
             label: None,
         };
         futures::executor::block_on(async {
@@ -315,7 +315,7 @@ mod tests {
         let texture_extent = wgpu::Extent3d {
             width: size,
             height: size,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture_descriptor = wgpu::TextureDescriptor {
             size: texture_extent,
@@ -324,8 +324,8 @@ mod tests {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             usage: crate::ComputeMipmapGenerator::required_usage()
-                | wgpu::TextureUsage::COPY_DST
-                | wgpu::TextureUsage::COPY_SRC,
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::COPY_SRC,
             label: None,
         };
         futures::executor::block_on(async {
@@ -373,7 +373,7 @@ mod tests {
         let texture_extent = wgpu::Extent3d {
             width: size,
             height: size,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture_descriptor = wgpu::TextureDescriptor {
             size: texture_extent,
@@ -382,8 +382,8 @@ mod tests {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             usage: crate::ComputeMipmapGenerator::required_usage()
-                | wgpu::TextureUsage::COPY_DST
-                | wgpu::TextureUsage::COPY_SRC,
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::COPY_SRC,
             label: None,
         };
         futures::executor::block_on(async {
@@ -428,7 +428,7 @@ mod tests {
         let texture_extent = wgpu::Extent3d {
             width: size,
             height: size,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture_descriptor = wgpu::TextureDescriptor {
             size: texture_extent,
@@ -437,8 +437,8 @@ mod tests {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             usage: crate::ComputeMipmapGenerator::required_usage()
-                | wgpu::TextureUsage::COPY_DST
-                | wgpu::TextureUsage::COPY_SRC,
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::COPY_SRC,
             label: None,
         };
         futures::executor::block_on(async {
@@ -490,7 +490,7 @@ mod tests {
         let texture_extent = wgpu::Extent3d {
             width: size,
             height: size,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture_descriptor = wgpu::TextureDescriptor {
             size: texture_extent,
@@ -499,8 +499,8 @@ mod tests {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             usage: crate::RenderMipmapGenerator::required_usage()
-                | wgpu::TextureUsage::COPY_DST
-                | wgpu::TextureUsage::COPY_SRC,
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::COPY_SRC,
             label: None,
         };
         futures::executor::block_on(async {
@@ -550,7 +550,7 @@ mod tests {
         let texture_extent = wgpu::Extent3d {
             width: size,
             height: size,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture_descriptor = wgpu::TextureDescriptor {
             size: texture_extent,
@@ -559,8 +559,8 @@ mod tests {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             usage: crate::ComputeMipmapGenerator::required_usage()
-                | wgpu::TextureUsage::COPY_DST
-                | wgpu::TextureUsage::COPY_SRC,
+                | wgpu::TextureUsages::COPY_DST
+                | wgpu::TextureUsages::COPY_SRC,
             label: None,
         };
         futures::executor::block_on(async {
@@ -610,7 +610,7 @@ mod tests {
         let texture_extent = wgpu::Extent3d {
             width: size,
             height: size,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
         let texture_descriptor = wgpu::TextureDescriptor {
             size: texture_extent,
@@ -619,8 +619,8 @@ mod tests {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             usage: crate::CopyMipmapGenerator::required_usage()
-                | wgpu::TextureUsage::COPY_SRC
-                | wgpu::TextureUsage::COPY_DST,
+                | wgpu::TextureUsages::COPY_SRC
+                | wgpu::TextureUsages::COPY_DST,
             label: None,
         };
         futures::executor::block_on(async {
