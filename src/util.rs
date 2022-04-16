@@ -261,13 +261,19 @@ pub(crate) async fn wgpu_setup() -> (wgpu::Instance, wgpu::Adapter, wgpu::Device
         .await
         .expect("Failed to find an appropiate adapter");
     // Create the logical device and command queue
+
+    let limits = wgpu::Limits {
+        max_compute_invocations_per_workgroup: 1024,
+        ..Default::default()
+    };
+
     let (device, queue) = adapter
         .request_device(
             &wgpu::DeviceDescriptor {
                 label: None,
                 features: wgpu::Features::default()
                     | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES,
-                limits: wgpu::Limits::default(),
+                limits,
             },
             None,
         )
