@@ -198,7 +198,7 @@ fn bind_group_layout_for_format(device: &Device, format: TextureFormat) -> BindG
                 binding: 1,
                 visibility: ShaderStages::COMPUTE,
                 ty: BindingType::StorageTexture {
-                    access: StorageTextureAccess::ReadOnly,
+                    access: StorageTextureAccess::WriteOnly,
                     format,
                     view_dimension: TextureViewDimension::D2,
                 },
