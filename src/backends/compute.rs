@@ -1,5 +1,5 @@
 use crate::{core::*, util::get_mip_extent};
-use std::{collections::HashMap, num::NonZeroU32};
+use std::{borrow::Cow, collections::HashMap, num::NonZeroU32};
 use wgpu::{
     BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingResource, BindingType, CommandEncoder, ComputePassDescriptor,
@@ -112,11 +112,11 @@ impl MipmapGenerator for ComputeMipmapGenerator {
                 entries: &[
                     BindGroupEntry {
                         binding: 0,
-                        resource: BindingResource::TextureView(&src_view),
+                        resource: BindingResource::TextureView(src_view),
                     },
                     BindGroupEntry {
                         binding: 1,
-                        resource: BindingResource::TextureView(&dst_view),
+                        resource: BindingResource::TextureView(dst_view),
                     },
                 ],
             });
@@ -134,11 +134,14 @@ impl MipmapGenerator for ComputeMipmapGenerator {
 }
 
 fn shader_for_format(device: &Device, format: TextureFormat) -> Option<ShaderModule> {
-    let s = |d| {
+    let s = |d: &[u8]| {
+        let d = unsafe { d.align_to::<u32>() };
+        assert!(d.0.is_empty());
+        assert!(d.2.is_empty());
+
         Some(device.create_shader_module(&ShaderModuleDescriptor {
             label: None,
-            source: make_spirv(d),
-            flags: ShaderFlags::empty(),
+            source: wgpu::ShaderSource::SpirV(Cow::Borrowed(d.1)),
         }))
     };
     match format {
@@ -213,7 +216,7 @@ fn compute_pipeline_for_format(
 ) -> ComputePipeline {
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
         label: None,
-        bind_group_layouts: &[&bind_group_layout],
+        bind_group_layouts: &[bind_group_layout],
         push_constant_ranges: &[],
     });
     device.create_compute_pipeline(&ComputePipelineDescriptor {
@@ -243,19 +246,16 @@ mod tests {
             &device,
             &[texture_descriptor.format],
         );
-        Ok(
-            generate_and_copy_to_cpu(&device, &queue, &generator, buffer, texture_descriptor)
-                .await?,
-        )
+        generate_and_copy_to_cpu(&device, &queue, &generator, buffer, texture_descriptor).await
     }
 
     async fn generate_test(texture_descriptor: &wgpu::TextureDescriptor<'_>) -> Result<(), Error> {
         let (_instance, _adapter, device, _queue) = wgpu_setup().await;
         let generator =
             ComputeMipmapGenerator::new_with_format_hints(&device, &[texture_descriptor.format]);
-        let texture = device.create_texture(&texture_descriptor);
+        let texture = device.create_texture(texture_descriptor);
         let mut encoder = device.create_command_encoder(&Default::default());
-        generator.generate(&device, &mut encoder, &texture, &texture_descriptor)
+        generator.generate(&device, &mut encoder, &texture, texture_descriptor)
     }
 
     #[test]

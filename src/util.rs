@@ -50,7 +50,7 @@ pub async fn generate_and_copy_to_cpu(
         texture_descriptor.size.height as usize,
         format_bytes_per_channel(&texture_descriptor.format),
     );
-    let texture = device.create_texture(&texture_descriptor);
+    let texture = device.create_texture(texture_descriptor);
     // Upload `data` to the texture
     queue.write_texture(
         wgpu::ImageCopyTexture {
@@ -59,7 +59,7 @@ pub async fn generate_and_copy_to_cpu(
             origin: wgpu::Origin3d::ZERO,
             aspect: wgpu::TextureAspect::All,
         },
-        &data,
+        data,
         wgpu::ImageDataLayout {
             offset: 0,
             bytes_per_row: NonZeroU32::new(buffer_dimensions.unpadded_bytes_per_row as u32),
@@ -73,7 +73,7 @@ pub async fn generate_and_copy_to_cpu(
     );
     let mut encoder =
         device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-    generator.generate(&device, &mut encoder, &texture, &texture_descriptor)?;
+    generator.generate(device, &mut encoder, &texture, texture_descriptor)?;
     // Copy all mipmap levels, including the base, to GPU buffers
     let buffers = {
         let mut buffers = Vec::new();

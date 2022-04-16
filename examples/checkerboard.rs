@@ -8,12 +8,13 @@ fn main() {
     let mut rd: RenderDoc<V110> = RenderDoc::new().expect("Unable to connect");
     #[cfg(feature = "debug")]
     rd.start_frame_capture(std::ptr::null(), std::ptr::null());
-    let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+    let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
     futures::executor::block_on((|| {
         async {
             let adapter = instance
                 .request_adapter(&wgpu::RequestAdapterOptions {
                     power_preference: wgpu::PowerPreference::HighPerformance,
+                    force_fallback_adapter: false,
                     compatible_surface: None,
                 })
                 .await
@@ -38,7 +39,7 @@ fn main() {
             let texture_extent = wgpu::Extent3d {
                 width,
                 height,
-                depth: 1,
+                depth_or_array_layers: 1,
             };
             // Generate different mipmaps for both a linear and srgb format
             // with both the render and compute code paths
@@ -70,7 +71,9 @@ fn main() {
                         format: *format,
                         sample_count: 1,
                         dimension: wgpu::TextureDimension::D2,
-                        usage: *usage | wgpu::TextureUsage::COPY_DST | wgpu::TextureUsage::COPY_SRC,
+                        usage: *usage
+                            | wgpu::TextureUsages::COPY_DST
+                            | wgpu::TextureUsages::COPY_SRC,
                         label: None,
                     };
 

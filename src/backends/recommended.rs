@@ -46,7 +46,7 @@ impl RecommendedMipmapGenerator {
         format_hints: &[wgpu::TextureFormat],
     ) -> Self {
         for format in format_hints {
-            if !SUPPORTED_FORMATS.contains(&format) {
+            if !SUPPORTED_FORMATS.contains(format) {
                 log::warn!("[RecommendedMipmapGenerator::new] No support for requested texture format {:?}", *format);
                 log::warn!("[RecommendedMipmapGenerator::new] Attempting to continue, but calls to generate may fail or produce unexpected results.");
                 continue;
@@ -121,10 +121,8 @@ mod tests {
             &device,
             &[texture_descriptor.format],
         );
-        Ok(
-            generate_and_copy_to_cpu(&device, &queue, &generator, buffer, texture_descriptor)
-                .await?,
-        )
+
+        generate_and_copy_to_cpu(&device, &queue, &generator, buffer, texture_descriptor).await
     }
     #[test]
     fn checkerboard_r8_render() {

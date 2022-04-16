@@ -49,7 +49,7 @@ impl<'a> MipmapGenerator for CopyMipmapGenerator<'a> {
         self.generator.generate_src_dst(
             device,
             encoder,
-            &texture,
+            texture,
             &tmp_texture,
             texture_descriptor,
             &tmp_descriptor,
@@ -65,7 +65,7 @@ impl<'a> MipmapGenerator for CopyMipmapGenerator<'a> {
                     aspect: wgpu::TextureAspect::All,
                 },
                 ImageCopyTexture {
-                    texture: &texture,
+                    texture,
                     mip_level: i + 1,
                     origin: Origin3d::default(),
                     aspect: wgpu::TextureAspect::All,
@@ -98,10 +98,8 @@ mod tests {
             &[texture_descriptor.format],
         );
         let fallback = CopyMipmapGenerator::new(&generator);
-        Ok(
-            generate_and_copy_to_cpu(&device, &queue, &fallback, buffer, texture_descriptor)
-                .await?,
-        )
+
+        generate_and_copy_to_cpu(&device, &queue, &fallback, buffer, texture_descriptor).await
     }
 
     async fn generate_test(texture_descriptor: &wgpu::TextureDescriptor<'_>) -> Result<(), Error> {
@@ -111,9 +109,9 @@ mod tests {
             &[texture_descriptor.format],
         );
         let generator = CopyMipmapGenerator::new(&render);
-        let texture = device.create_texture(&texture_descriptor);
+        let texture = device.create_texture(texture_descriptor);
         let mut encoder = device.create_command_encoder(&Default::default());
-        generator.generate(&device, &mut encoder, &texture, &texture_descriptor)
+        generator.generate(&device, &mut encoder, &texture, texture_descriptor)
     }
 
     #[test]

@@ -10,12 +10,13 @@ fn main() {
     #[cfg(feature = "debug")]
     rd.start_frame_capture(std::ptr::null(), std::ptr::null());
 
-    let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+    let instance = wgpu::Instance::new(wgpu::Backends::PRIMARY);
     futures::executor::block_on((|| {
         async {
             let adapter = instance
                 .request_adapter(&wgpu::RequestAdapterOptions {
                     power_preference: wgpu::PowerPreference::HighPerformance,
+                    force_fallback_adapter: false,
                     compatible_surface: None,
                 })
                 .await
@@ -35,7 +36,7 @@ fn main() {
             // Generate texture data on the CPU
             let cat_png_bytes = include_bytes!("cat.png");
             let cat_image = image::load_from_memory(cat_png_bytes).expect("this should work");
-            let cat_image = cat_image.into_rgba();
+            let cat_image = cat_image.into_rgba8();
             let width = cat_image.width();
             let height = cat_image.height();
             let mip_level_count = 1 + (width.max(height) as f64).log2().floor() as u32;
@@ -44,7 +45,7 @@ fn main() {
             let texture_extent = wgpu::Extent3d {
                 width,
                 height,
-                depth: 1,
+                depth_or_array_layers: 1,
             };
             let supported_usage: std::collections::HashMap<_, _> = vec![
                 (
@@ -67,7 +68,7 @@ fn main() {
                     format,
                     sample_count: 1,
                     dimension: wgpu::TextureDimension::D2,
-                    usage: *usage | wgpu::TextureUsage::COPY_DST | wgpu::TextureUsage::COPY_SRC,
+                    usage: *usage | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::COPY_SRC,
                     label: None,
                 };
 

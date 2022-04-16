@@ -1,5 +1,5 @@
 use crate::{core::*, util::get_mip_extent};
-use std::{collections::HashMap, num::NonZeroU32};
+use std::{borrow::Cow, collections::HashMap, num::NonZeroU32};
 use wgpu::{
     AddressMode, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BindingResource, BindingType, CommandEncoder, Device, Face, FilterMode,
@@ -138,7 +138,7 @@ impl RenderMipmapGenerator {
         // - [Metal](https://developer.apple.com/documentation/metal/mtlsamplerminmagfilter/linear)
         // - [DX12](https://docs.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_filter)
         let sampler = device.create_sampler(&SamplerDescriptor {
-            label: Some(&"wgpu-mipmap-sampler"),
+            label: Some("wgpu-mipmap-sampler"),
             address_mode_u: AddressMode::ClampToEdge,
             address_mode_v: AddressMode::ClampToEdge,
             address_mode_w: AddressMode::ClampToEdge,
@@ -151,45 +151,52 @@ impl RenderMipmapGenerator {
         let render_layout_cache = {
             let mut layout_cache = HashMap::new();
             // For now, we only cache a bind group layout for floating-point textures
-            for &sample_type in &[TextureSampleType::Float { filterable: true }] {
-                let bind_group_layout =
-                    device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                        label: Some(&format!("wgpu-mipmap-bg-layout-{:?}", sample_type)),
-                        entries: &[
-                            BindGroupLayoutEntry {
-                                binding: 0,
-                                visibility: ShaderStages::FRAGMENT,
-                                ty: BindingType::Texture {
-                                    view_dimension: TextureViewDimension::D2,
-                                    sample_type,
-                                    multisampled: false,
-                                },
-                                count: None,
-                            },
-                            BindGroupLayoutEntry {
-                                binding: 1,
-                                visibility: ShaderStages::FRAGMENT,
-                                ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                                count: None,
-                            },
-                        ],
-                    });
-                layout_cache.insert(sample_type, bind_group_layout);
-            }
+            let sample_type = TextureSampleType::Float { filterable: true };
+
+            let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some(&format!("wgpu-mipmap-bg-layout-{:?}", sample_type)),
+                entries: &[
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Texture {
+                            view_dimension: TextureViewDimension::D2,
+                            sample_type,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+            });
+            layout_cache.insert(sample_type, bind_group_layout);
+
             layout_cache
         };
+
+        let vert = unsafe { include_bytes!("shaders/triangle.vert.spv").align_to::<u32>() };
+        let frag = unsafe { include_bytes!("shaders/box.frag.spv").align_to::<u32>() };
+
+        assert!(vert.0.is_empty());
+        assert!(vert.2.is_empty());
+
+        assert!(frag.0.is_empty());
+        assert!(frag.2.is_empty());
 
         let render_pipeline_cache = {
             let mut pipeline_cache = HashMap::new();
             let vertex_module = device.create_shader_module(&ShaderModuleDescriptor {
                 label: None,
-                source: make_spirv(include_bytes!("shaders/triangle.vert.spv")),
-                flags: ShaderFlags::empty(),
+                source: wgpu::ShaderSource::SpirV(Cow::Borrowed(vert.1)),
             });
             let box_filter = device.create_shader_module(&ShaderModuleDescriptor {
                 label: None,
-                source: make_spirv(include_bytes!("shaders/box.frag.spv")),
-                flags: ShaderFlags::empty(),
+                source: wgpu::ShaderSource::SpirV(Cow::Borrowed(frag.1)),
             });
             for format in format_hints {
                 let fragment_module = &box_filter;
@@ -222,7 +229,7 @@ impl RenderMipmapGenerator {
                             alpha_to_coverage_enabled: false,
                         },
                         fragment: Some(FragmentState {
-                            module: &fragment_module,
+                            module: fragment_module,
                             entry_point: "main",
                             targets: &[(*format).into()],
                         }),
@@ -343,7 +350,7 @@ impl RenderMipmapGenerator {
                 entries: &[
                     BindGroupEntry {
                         binding: 0,
-                        resource: BindingResource::TextureView(&src_view),
+                        resource: BindingResource::TextureView(src_view),
                     },
                     BindGroupEntry {
                         binding: 1,
@@ -354,7 +361,7 @@ impl RenderMipmapGenerator {
             let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: None,
                 color_attachments: &[RenderPassColorAttachment {
-                    view: &dst_view,
+                    view: dst_view,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Load,
@@ -382,10 +389,10 @@ impl MipmapGenerator for RenderMipmapGenerator {
         self.generate_src_dst(
             device,
             encoder,
-            &texture,
-            &texture,
-            &texture_descriptor,
-            &texture_descriptor,
+            texture,
+            texture,
+            texture_descriptor,
+            texture_descriptor,
             0,
         )
     }
@@ -410,19 +417,17 @@ mod tests {
             &device,
             &[texture_descriptor.format],
         );
-        Ok(
-            generate_and_copy_to_cpu(&device, &queue, &generator, buffer, texture_descriptor)
-                .await?,
-        )
+
+        generate_and_copy_to_cpu(&device, &queue, &generator, buffer, texture_descriptor).await
     }
 
     async fn generate_test(texture_descriptor: &TextureDescriptor<'_>) -> Result<(), Error> {
         let (_instance, _adapter, device, _queue) = wgpu_setup().await;
         let generator =
             RenderMipmapGenerator::new_with_format_hints(&device, &[texture_descriptor.format]);
-        let texture = device.create_texture(&texture_descriptor);
+        let texture = device.create_texture(texture_descriptor);
         let mut encoder = device.create_command_encoder(&Default::default());
-        generator.generate(&device, &mut encoder, &texture, &texture_descriptor)
+        generator.generate(&device, &mut encoder, &texture, texture_descriptor)
     }
 
     #[test]
